@@ -16,7 +16,7 @@ usage () {
 	echo "        -t | --sleeptime=n    how many time to sleep during each sample"
 	echo "        -f | --stackframe=n   how deep the stack frame to output"
 	echo "        -p | --pid=pid        which pid to analyze"
-	echo "        -n | --progname=name  which program to analyze, good for multi-process"
+	echo "        -n | --progname=name  which program to analyze, good for multi-process profiling "
 	echo "        -h | --help           show this help"
 	exit 1
 }
