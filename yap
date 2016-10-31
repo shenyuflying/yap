@@ -17,6 +17,7 @@ usage () {
 	echo "        -f | --stackframe=n   how deep the stack frame to output"
 	echo "        -p | --pid=pid        which pid to analyze"
 	echo "        -n | --progname=name  which program to analyze, good for multi-process profiling "
+	echo "        -m | --symbols=file   read symbol table from file"
 	echo "        -h | --help           show this help"
 	exit 1
 }
@@ -27,8 +28,9 @@ sleeptime=0
 deep=5
 pid=0
 progname=""
+symbols=""
 
-GETOPT_ARGS=`getopt -o s:t:f:p:n:h -l samples:,sleeptime:,stackframe:,pid:,progname:,help -- "$@"`
+GETOPT_ARGS=`getopt -o s:t:f:p:n:m:h -l samples:,symbols:,sleeptime:,stackframe:,pid:,progname:,help -- "$@"`
 
 #getopt report an error better show the help
 if [ $? != "0" ] ; then
@@ -45,6 +47,7 @@ do
 		-f|--stackframe) deep=$2; shift 2;;
 		-p|--pid) pid=$2; shift 2;;
 		-n|--progname) progname=$2; shift 2;;
+		-m|--symbols) symbols=$2; shift 2;;
 		-h|--help) usage ; shift 2;;
 		--) break ;;
 		*) echo "invalid parameter:" $1,$2; usage; exit 1; break ;;
@@ -58,18 +61,25 @@ if [ "x"$progname = "x" ]  && [ "x"$pid = "x0" ] ; then
 fi  
 
 
+#argument for gdb to load symbol file
+arg_symbols=""
+if [ "x"$symbols != "x" ] ; then
+	arg_symbols="-symbols=$symbols"
+fi
+
 for x in $(seq 1 $nsamples)
   do
     # find all pid of progname for mlti-process program
     if [ "x"$progname != "x" ] ; then
-	pids=$(pidof $progname)
+		pids=$(pidof $progname)
+
         for pid_i in $pids ; do
-    	    gdb -ex "set pagination 0" -ex "thread apply all bt $deep" -batch -p $pid_i    2>/dev/null  
+    	    gdb $arg_symbols -ex "set pagination 0" -ex "thread apply all bt $deep" -batch -p $pid_i   2>/dev/null  
         done
     fi
     # just look the program of a pid
     if [ "x"$pid != "x0" ] ; then
-    	gdb -ex "set pagination 0" -ex "thread apply all bt $deep" -batch -p $pid  2>/dev/null  
+    	gdb $arg_symbols -ex "set pagination 0" -ex "thread apply all bt $deep" -batch -p $pid  2>/dev/null  
     fi
 
     sleep $sleeptime
