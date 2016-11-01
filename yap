@@ -29,9 +29,29 @@ deep=5
 pid=0
 progname=""
 symbols=""
+file="out.yap"
 
 GETOPT_ARGS=`getopt -o s:t:f:p:n:m:h -l samples:,symbols:,sleeptime:,stackframe:,pid:,progname:,help -- "$@"`
 
+function do_output()
+{
+    time=`date +'%F_%T.%N'`
+    echo "================================================================"
+    echo " Yap  $time                                                     "
+    echo "================================================================"
+    echo " Count                            Stack                         "
+    echo "================================================================"
+    cat $file | \
+    awk '
+    BEGIN { s = ""; } 
+    /^Thread/ { print s; s = ""; } 
+    /^\#/ { if (s != "" ) { s = s "," $4} else { s = $4 } } 
+    END { print s }' | \
+    sort |\
+    uniq -c |\
+    sort -r -n -k 1,1 
+    echo "================================================================"
+}
 #getopt report an error better show the help
 if [ $? != "0" ] ; then
 	usage
@@ -60,40 +80,35 @@ if [ "x"$progname = "x" ]  && [ "x"$pid = "x0" ] ; then
 	exit 1
 fi  
 
+# clear the out put file
+echo "" > $file
 
 #argument for gdb to load symbol file
 arg_symbols=""
+
 if [ "x"$symbols != "x" ] ; then
 	arg_symbols="-symbols=$symbols"
 fi
 
 for x in $(seq 1 $nsamples)
   do
-    # find all pid of progname for mlti-process program
+    # Case 1 : find all pid of progname for mlti-process program
     if [ "x"$progname != "x" ] ; then
 		pids=$(pidof $progname)
 
         for pid_i in $pids ; do
-    	    gdb $arg_symbols -ex "set pagination 0" -ex "thread apply all bt $deep" -batch -p $pid_i   2>/dev/null  
+    	    gdb $arg_symbols -ex "set pagination 0" -ex "thread apply all bt $deep" -batch -p $pid_i  1>> $file  2>/dev/null  
         done
     fi
-    # just look the program of a pid
-    if [ "x"$pid != "x0" ] ; then
-    	gdb $arg_symbols -ex "set pagination 0" -ex "thread apply all bt $deep" -batch -p $pid  2>/dev/null  
+
+    # Case 2 : just look the program of a pid
+    if [ "x"$pid != "x" ] ; then
+        gdb $arg_symbols -ex "set pagination 0" -ex "thread apply all bt $deep" -batch -p $pid 1>>$file   2>/dev/null  
     fi
-
+    # sleep some time to lower the printing rate
     sleep $sleeptime
-
-    # show the progress
-    echo "$x/$nsamples completed." >&2
-  done | \
-awk '
-  BEGIN { s = ""; } 
-  /^Thread/ { print s; s = ""; } 
-  /^\#/ { if (s != "" ) { s = s "," $4} else { s = $4 } } 
-  END { print s }' | \
-sort |\
-uniq -c |\
-sort -r -n -k 1,1 
-
+    # refresh on every loop
+    clear
+    do_output
+done
 
